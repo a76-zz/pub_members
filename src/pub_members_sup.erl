@@ -23,5 +23,8 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
+    Children = [?CHILD(pub_members_state, worker),
+                ?CHILD(pub_members_scanner, worker)],
+	RestartStrategy = {one_for_one, 0, 1},
+	{ok, {RestartStrategy, Children}}.
 

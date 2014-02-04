@@ -10,20 +10,22 @@
 -define(PERIOD, 1000).
 -define(SERVER, ?MODULE).
 
--record(state, {odbc_connection}).
+-record(state, {connection, timer}).
+-record(member, {id, first_name, last_name, timestamp}).
 
 start_link() ->
 	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
     Timer = erlang:send_after(1, self(), scan),
-    {ok, Timer}.
+    {ok, Connection} = odbc:connect("DSN=TEST", []),
+    {ok, #state{connection = Connection, timer = Timer}}.
 
-handle_info(scan, OldTimer) ->
+handle_info(scan, #state{connection = Connection, timer = OldTimer}) ->
     erlang:cancel_timer(OldTimer),
-    do_scan(),
+    do_scan(Connection),
     Timer = erlang:send_after(1000, self(), scan),
-    {noreply, Timer}.
+    {noreply, #state{connection = Connection, timer = Timer}}.
 
 handle_call(_Request, _From, State) ->
     {noreply, State}.
@@ -34,14 +36,26 @@ handle_cast(_Msg, State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
+    odbc:disconnect(State#state.connection),
     ok.
 
-do_scan() ->
+do_scan(Connection) ->
     io:format("scanning...~n"),
     TimeStamp = pub_members_state:get_pub_timestamp(),
     io:format("timestamp:~p~n", [TimeStamp]),
-    ok.
+
+    case TimeStamp of 
+        {{Year, Month, Day}, {Hour, Min, Sec}} -> 
+            UTC = io_lib:format("~B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ", [Year, Month, Day, Hour, Min, Sec]),
+            Result = odbc:param_query(Connection, "select * from members where time_stamp > '?'", [{sql_timestamp, [UTC]}]),
+            io:format("result:~p~n", [Result]);
+        undefined ->
+            {selected, _, Rows} = odbc:sql_query(Connection, "select * from members"),
+            %io:format("result:~p~n", [Result]),
+            lists:foreach(fun(Row) -> io:format("timestamp~p~n", [Row]) end, Rows)
+    end,
+ok.
 
 %terminate(_Reason, _StateName, #state{odbc_connection = Connection}) ->
     %odbc:disconnect(Connection).

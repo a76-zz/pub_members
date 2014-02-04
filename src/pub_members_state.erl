@@ -9,8 +9,6 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {pub_timestamp}).
-
 start_link() ->
 	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
@@ -22,19 +20,27 @@ set_pub_timestamp(TimeStamp) ->
 
 init([]) ->
 	dets:open_file(pub_state, [{type, set}, {file, "pub_state"}]),
-	{ok, #state{pub_timestamp = dets:lookup(pub_state, pub_timestamp)}}.
+    case dets:lookup(pub_state, pub_timestamp) of 
+        [TimeStamp] -> 
+            State = TimeStamp;
+        _ -> 
+            State = undefined
+    end,
+    dets:close(pub_state),
+	{ok, State}.
 
 terminate(_Reason, _State) ->
-	dets:close(pub_state),
 	ok.
 
 handle_call(Request, _From, State) ->
     case Request of 
     	{get_pub_timestamp} ->
-    		{reply, State#state.pub_timestamp, State};
+    		{reply, State, State};
     	{set_pub_timestamp, TimeStamp} ->
-    		dets:insert(pub_state, {pub_timestamp, State#state.pub_timestamp}),
-    		{reply, ok, #state{pub_timestamp = TimeStamp}}
+            dets:open_file(pub_state, [{type, set}, {file, "pub_state"}]),
+    		dets:insert(pub_state, {pub_timestamp, TimeStamp}),
+            dets:close(pub_state),
+    		{reply, ok, TimeStamp} 
     end.
 
 handle_cast(_Msg, State) ->
