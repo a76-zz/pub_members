@@ -11,7 +11,8 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {connection, timer}).
--record(member, {id, first_name, last_name, timestamp}).
+
+-include_lib("deps/amqp_client/include/amqp_client.hrl").
 
 start_link() ->
 	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -41,35 +42,17 @@ terminate(_Reason, State) ->
     ok.
 
 do_scan(Connection) ->
-    io:format("scanning...~n"),
     TimeStamp = pub_members_state:get_pub_timestamp(),
-    io:format("timestamp:~p~n", [TimeStamp]),
-
     case TimeStamp of 
         {{Year, Month, Day}, {Hour, Min, Sec}} -> 
             UTC = io_lib:format("~B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ", [Year, Month, Day, Hour, Min, Sec]),
-            Result = odbc:param_query(Connection, "select * from members where time_stamp > '?'", [{sql_timestamp, [UTC]}]),
-            io:format("result:~p~n", [Result]);
+            Result = odbc:param_query(Connection, "select * from members where time_stamp > '?'", [{sql_timestamp, [UTC]}]);
         undefined ->
-            {selected, _, Rows} = odbc:sql_query(Connection, "select * from members"),
-            %io:format("result:~p~n", [Result]),
-            lists:foreach(fun(Row) -> io:format("timestamp~p~n", [Row]) end, Rows)
+            Result = odbc:sql_query(Connection, "select * from members")
     end,
+
+    case Result of 
+        {selected, _, Rows} when length(Rows) > 0 ->
+            pub_members_sender:send(Result)
+    end, 
 ok.
-
-%terminate(_Reason, _StateName, #state{odbc_connection = Connection}) ->
-    %odbc:disconnect(Connection).
-
-%scan() ->
-    % dets:open_file(food, [{type, bag}, {file, "/home/andrei/food"}]).
-    % dets:insert(food, {italy, spaghetti}).
-    % dets:lookup(food, italy).
-    % dets:open_file(sync, [{type, bag}, {file, "sync"}]).
-    % dets:insert(sync, {members, erlang:localtime()}).
-
-    % dets:lookup(food, italy).
-
-    %odbc:param_query(Pid, "select * from members where time_stamp < '?'", [{sql_timestamp, ["2015-01-01 00:00:00"]}]).
-
-%get_timestamp(DateTime = {{Year, Month, Day}, {Hour, Min, Sec}}) ->
-	%io_lib:format("~B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ", [Year, Mon, Day, Hour, Min, Sec]).
