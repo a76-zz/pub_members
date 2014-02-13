@@ -7,7 +7,6 @@ init() ->
 
 read() ->
 	{ok, Connection} = odbc:connect("DSN=TEST", []),
-	Result = odbc:sql_query(Connection, "select * from members"),
-    io:format("result:~p~n", [Result]),
-    pub_members_sender:send(Result).
+	Result = odbc:sql_query(Connection, "select * from members").
+    
 

@@ -21,9 +21,9 @@ set_pub_timestamp(TimeStamp) ->
 init([]) ->
 	dets:open_file(pub_state, [{type, set}, {file, "pub_state"}]),
     case dets:lookup(pub_state, pub_timestamp) of 
-        [TimeStamp] -> 
+        [{pub_timestamp, TimeStamp}] -> 
             State = TimeStamp;
-        _ -> 
+        [] -> 
             State = undefined
     end,
     dets:close(pub_state),
