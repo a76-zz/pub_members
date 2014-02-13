@@ -48,11 +48,14 @@ do_scan(Connection) ->
             UTC = io_lib:format("~B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ", [Year, Month, Day, Hour, Min, Sec]),
             Result = odbc:param_query(Connection, "select * from members where time_stamp > '?'", [{sql_timestamp, [UTC]}]);
         undefined ->
+            pub_members_state:set_pub_timestamp(calendar:local_time()),
             Result = odbc:sql_query(Connection, "select * from members")
     end,
 
     case Result of 
         {selected, _, Rows} when length(Rows) > 0 ->
-            pub_members_sender:send(Result)
+            pub_members_sender:send(Result);
+        {selected, _, []} ->
+            ignore
     end, 
 ok.

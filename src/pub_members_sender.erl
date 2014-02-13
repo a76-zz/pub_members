@@ -66,7 +66,7 @@ handle_call(Request, _From, State) ->
                               #'basic.publish'{
                                 exchange = <<"">>,
                                 routing_key = <<"members_sync">>},
-                              #amqp_msg{payload = term_to_binary(Message)}),
+                              #amqp_msg{payload = erlang:term_to_binary(Message)}),
             io:format(" [x] Sent '~p'~n", [Message]),
             ok = amqp_channel:close(Channel),
             ok = amqp_connection:close(Connection),
