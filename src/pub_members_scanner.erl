@@ -28,19 +28,6 @@ handle_info(scan, #state{connection = Connection, timer = OldTimer}) ->
     Timer = erlang:send_after(1000, self(), scan),
     {noreply, #state{connection = Connection, timer = Timer}}.
 
-handle_call(_Request, _From, State) ->
-    {noreply, State}.
-
-handle_cast(_Msg, State) ->
-    {noreply, State}.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-terminate(_Reason, State) ->
-    odbc:disconnect(State#state.connection),
-    ok.
-
 do_scan(Connection) ->
     TimeStamp = pub_members_state:get_pub_timestamp(),
     case TimeStamp of 
@@ -59,3 +46,17 @@ do_scan(Connection) ->
             ignore
     end, 
 ok.
+
+terminate(_Reason, State) ->
+    odbc:disconnect(State#state.connection),
+    ok.
+
+handle_call(_Request, _From, State) ->
+    {noreply, State}.
+
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
