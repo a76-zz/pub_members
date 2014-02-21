@@ -9,6 +9,9 @@
 	 terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(QUEUE, <<"members_sync">>).
+
+-record(state, {connection, channel}).
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -18,19 +21,17 @@ send(Message) ->
 
 handle_call(Request, _From, State) ->
     Reply = case Request of 
-    	{send, Message} -> 
-            Queue = <<"members_sync">>,
-            {ok, Connection, Channel} = amqp:connect("localhost", Queue),
-            amqp:basic_send(Channel, Queue, Message),
-            amqp:disconnect(Connection, Channel)
-    	end,
+        {send, Message} ->
+            amqp:basic_send(State#state.channel, ?QUEUE, Message)
+    end,
     {reply, Reply, State}.
 
 init([]) ->
-    {ok, []}.
+    {ok, Connection, Channel} = amqp:connect("localhost", ?QUEUE),
+    {ok, #state{connection = Connection, channel = Channel}}.
 
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, State) ->
+    amqp:disconnect(State#state.connection, State#state.channel).
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
